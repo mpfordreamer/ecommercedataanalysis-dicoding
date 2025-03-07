@@ -17,7 +17,7 @@ st.set_page_config(
 # Load the data
 @st.cache_data
 def load_data():
-    data = pd.read_csv('main_data.csv')
+    data = pd.read_csv('dashboard/main_data.csv')
     # Convert datetime columns
     datetime_columns = [
         'order_purchase_timestamp',
