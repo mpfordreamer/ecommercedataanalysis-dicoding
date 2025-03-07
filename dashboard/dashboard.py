@@ -77,7 +77,7 @@ with tab1:
     
     with col1:
         # Add Olist logo/image
-        st.image('about.png', width=500)
+        st.image('dashboard/about.png', width=500)
     
     with col2:
         st.markdown(""" 
