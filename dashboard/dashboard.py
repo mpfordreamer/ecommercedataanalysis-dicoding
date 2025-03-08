@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 
 # Set page configuration
 st.set_page_config(
-    page_title='E-Commerce Analysis Dashboard',
+    page_title='Fordreamer E-Commerce Dashboard',
     layout='wide',
     page_icon='🛒'
 )
@@ -30,7 +30,8 @@ def load_data():
         'review_answer_timestamp'
     ]
     for column in datetime_columns:
-        data[column] = pd.to_datetime(data[column])
+        if column in data.columns:
+            data[column] = pd.to_datetime(data[column])
     return data
 
 # Load data
@@ -41,9 +42,6 @@ st.sidebar.header('🛍️ E-Commerce Analysis Dashboard')
 
 # Add dashboard description with better formatting
 st.sidebar.markdown("""
-### About This Dashboard
-This is a Brazilian e-commerce analysis dashboard based on orders made at Olist Store.
-
 #### Features:
 - Order status and trends
 - Price and payment analysis
@@ -51,26 +49,141 @@ This is a Brazilian e-commerce analysis dashboard based on orders made at Olist 
 - Product characteristics
 - Customer reviews
 
-#### Data Source:
-Brazilian E-Commerce Public Dataset by Olist
 """)
 
+# ===== FILTER SECTION =====
+st.sidebar.header('Home Filter Data')
+
+# Date Range Filter
+if 'order_purchase_timestamp' in df.columns:
+    min_date = df['order_purchase_timestamp'].min().date()
+    max_date = df['order_purchase_timestamp'].max().date()
+    date_range = st.sidebar.date_input(
+        "Select Date Range",
+        [min_date, max_date],
+        min_value=min_date,
+        max_value=max_date
+    )
+
+    # Initialize filtered dataframe
+    filtered_df = df[(df['order_purchase_timestamp'].dt.date >= date_range[0]) & 
+                     (df['order_purchase_timestamp'].dt.date <= date_range[1])]
+else:
+    st.sidebar.warning("Column 'order_purchase_timestamp' not found")
+    filtered_df = df.copy()
+
+# Product Category Filter
+if 'product_category_name_english' in df.columns:
+    category_col = 'product_category_name_english'  # Use the English category name directly
+    
+    # Convert all values to strings to avoid type comparison issues
+    unique_categories = df[category_col].fillna('Unknown').astype(str).unique()
+    
+    # Sort categories as strings
+    sorted_categories = sorted(unique_categories)
+    
+    # Remove underscores and capitalize for display
+    formatted_categories = [cat.replace('_', ' ').title() for cat in sorted_categories]
+    
+    selected_categories = st.sidebar.multiselect(
+        'Select Product Category',
+        options=formatted_categories,
+        default=[]
+    )
+
+    if selected_categories:
+        # Convert formatted selections back to the original names for filtering
+        selected_categories_original = [cat for cat in sorted_categories if cat.replace('_', ' ').title() in selected_categories]
+        filtered_df = filtered_df[filtered_df[category_col].astype(str).isin(selected_categories_original)]
+else:
+    st.sidebar.warning("No column 'product_category_name_english' found")
+
+# Customer State Filter
+state_columns = [col for col in df.columns if 'state' in col.lower()]
+if state_columns:
+    state_col = state_columns[0]  # Use the first state column found
+    
+    # Convert to string to avoid type issues
+    unique_states = df[state_col].fillna('Unknown').astype(str).unique()
+    sorted_states = sorted(unique_states)
+    
+    # Remove underscores and capitalize for display
+    formatted_states = [state.replace('_', ' ').title() for state in sorted_states]
+    
+    selected_states = st.sidebar.multiselect(
+        'Select Customer State',
+        options=formatted_states,
+        default=[]
+    )
+
+    if selected_states:
+        # Convert formatted selections back to the original names for filtering
+        selected_states_original = [state for state in sorted_states if state.replace('_', ' ').title() in selected_states]
+        filtered_df = filtered_df[filtered_df[state_col].astype(str).isin(selected_states_original)]
+else:
+    st.sidebar.warning("No state column found")
+
+# Price Range Slider
+if 'price' in df.columns:
+    # Check if price column can be converted to numeric
+    try:
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+        min_price = float(df['price'].min())
+        max_price = float(df['price'].max())
+        price_range = st.sidebar.slider(
+            'Price Range (R$)',
+            min_value=min_price,
+            max_value=max_price,
+            value=(min_price, max_price)
+        )
+
+        # Filter based on price range
+        filtered_df = filtered_df[(filtered_df['price'] >= price_range[0]) & 
+                                 (filtered_df['price'] <= price_range[1])]
+    except Exception as e:
+        st.sidebar.warning(f"Could not process price column: {e}")
+else:
+    st.sidebar.warning("Column 'price' not found")
+
+# Review Score Radio Button
+if 'review_score' in df.columns:
+    # Check if review_score can be converted to numeric
+    try:
+        df['review_score'] = pd.to_numeric(df['review_score'], errors='coerce')
+        review_options = ['All Scores', '1-2 (Negative)', '3 (Neutral)', '4-5 (Positive)']
+        selected_review = st.sidebar.radio('Filter by Review Score', review_options)
+
+        if selected_review == '1-2 (Negative)':
+            filtered_df = filtered_df[filtered_df['review_score'].isin([1, 2])]
+        elif selected_review == '3 (Neutral)':
+            filtered_df = filtered_df[filtered_df['review_score'] == 3]
+        elif selected_review == '4-5 (Positive)':
+            filtered_df = filtered_df[filtered_df['review_score'].isin([4, 5])]
+    except Exception as e:
+        st.sidebar.warning(f"Could not process review_score column: {e}")
+else:
+    st.sidebar.warning("Column 'review_score' not found")
+
 st.sidebar.markdown('---')
-
-st.sidebar.markdown('<div style="text-align: center;">Created by: I Dewa Gede Mahesta Parawangsa</div>', unsafe_allow_html=True)
-
+st.sidebar.markdown("""
+<div style="text-align: center; padding: 10px;">
+    <p style="font-size: 14px; margin-bottom: 5px;">Made with ❤️ by De Mahesta 2025</p>
+    <p style="font-size: 14px; color: #888888;">&copy; All rights reserved.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Main content
-st.title('🛒 E-Commerce Analysis Dashboard')
+st.title('🛒 Welcome to Fordreamer Analysis Dashboard')
 
 # Create tabs for different analyses
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "About",
+    "Home",
     "Order Trends & Characteristics", 
     "Top Product Categories",
     "Delivery Analysis",
     "Customer Reviews",
 ])
+
 with tab1:
     # Create two columns
     col1, col2 = st.columns([2, 3])
@@ -81,7 +194,7 @@ with tab1:
     
     with col2:
         st.markdown(""" 
-        ## About This Dashboard
+        ## About Dashboard
         
         This dashboard provides comprehensive analysis of Brazilian E-commerce data from Olist Store. 
         Olist is the largest department store in Brazilian marketplaces. This dashboard helps 
@@ -99,41 +212,84 @@ with tab1:
     metric1, metric2, metric3, metric4 = st.columns(4)
     
     with metric1:
-        st.metric(label="Total Orders", 
-                 value=f"{len(df['order_id'].unique()):,}")
+        if 'order_id' in filtered_df.columns:
+            st.metric(label="Total Orders", 
+                     value=f"{len(filtered_df['order_id'].unique())}")
+        else:
+            st.metric(label="Total Orders", value="N/A")
     
     with metric2:
-        st.metric(label="Total Products", 
-                 value=f"{len(df['product_id'].unique()):,}")
+        if 'product_id' in filtered_df.columns:
+            st.metric(label="Total Products", 
+                     value=f"{len(filtered_df['product_id'].unique())}")
+        else:
+            st.metric(label="Total Products", value="N/A")
     
     with metric3:
-        st.metric(label="Total Customers", 
-                 value=f"{len(df['customer_id'].unique()):,}")
+        if 'customer_id' in filtered_df.columns:
+            st.metric(label="Total Customers", 
+                     value=f"{len(filtered_df['customer_id'].unique())}")
+        else:
+            st.metric(label="Total Customers", value="N/A")
     
     with metric4:
-        st.metric(label="Total Sellers", 
-                 value=f"{len(df['seller_id'].unique()):,}")
+        if 'seller_id' in filtered_df.columns:
+            st.metric(label="Total Sellers", 
+                     value=f"{len(filtered_df['seller_id'].unique())}")
+        else:
+            st.metric(label="Total Sellers", value="N/A")
     
     st.markdown("---")
     
+    # Visualization based on filters
+    st.subheader("Visualization Based on Filters")
     st.markdown("""
-    ### 📊 Dataset Information
-    
-    #### Time Period
-    - Orders placed from September 2016 to October 2018
-    - Real commercial data from multiple marketplaces in Brazil
-    
-    #### Key Features Analyzed
-    - **Order Processing**: Track order status from purchase to delivery
-    - **Payment Analysis**: Various payment methods and installment options
-    - **Product Categories**: Distribution and performance across categories
-    - **Delivery Performance**: Delivery times and efficiency analysis
-    - **Customer Satisfaction**: Review scores and feedback analysis
-    
-    #### Data Privacy
-    All customer and seller information in this dataset is anonymized, and 
-    order values have been properly normalized.
+    This section displays visual insights based on your selected filters, allowing you to:
+    - **Monthly Order Trends**: Track changes in order volume over time.
+    - **Orders by Product Category**: Identify popular product categories.
+    - **Payment Method Distribution**: Analyze the usage of different payment methods.
+    - **Order Value Distribution**: Examine the range of order values.
+
+    Use the sidebar filters to customize the data shown in these visualizations.
     """)
+    
+    # Monthly order trends for filtered data
+    if 'order_purchase_timestamp' in filtered_df.columns:
+        try:
+            monthly_orders = filtered_df.groupby(pd.Grouper(key='order_purchase_timestamp', freq='M')).size().reset_index()
+            monthly_orders.columns = ['date', 'order_count']
+            
+            fig = px.line(monthly_orders, x='date', y='order_count',
+                        title='Monthly Order Trends for Filtered Data')
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not create monthly trend visualization: {e}")
+    else:
+        st.warning("Cannot create monthly trend visualization because timestamp column is not available")
+
+    # Bar Chart for Total Orders by Product Category
+    if category_col in filtered_df.columns:
+        category_orders = filtered_df[category_col].value_counts().reset_index()
+        category_orders.columns = [category_col, 'order_count']
+        
+        fig_bar = px.bar(category_orders, x=category_col, y='order_count',
+                        title='Total Orders by Product Category',
+                        labels={category_col: category_col, 'order_count': 'Order Count'})
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    # Pie Chart for Payment Method Distribution
+    if 'payment_type' in filtered_df.columns:
+        payment_dist = filtered_df['payment_type'].value_counts()
+        
+        fig_pie = px.pie(values=payment_dist.values, names=payment_dist.index,
+                        title='Distribution of Payment Methods')
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    # Histogram for Order Value Distribution
+    if 'total_value' in filtered_df.columns:
+        fig_hist = px.histogram(filtered_df[filtered_df['total_value'] <= 1000], x='total_value', nbins=50,
+                                title='Distribution of Order Values (up to R$ 1000)')
+        st.plotly_chart(fig_hist, use_container_width=True)
 
 with tab2:
     st.header("Order Trends & Characteristics Analysis")
@@ -151,12 +307,13 @@ with tab2:
     daily_orders = df['day_of_week'].value_counts()
     days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     daily_orders = daily_orders.reindex(days_order)
-    
+
     fig = px.bar(x=daily_orders.index, y=daily_orders.values,
-                 title='Order Distribution by Day of Week')
+                title='Order Distribution by Day of Week',
+                labels={'x': 'Days', 'y': 'Order Count'})
     st.plotly_chart(fig, use_container_width=True)
 
-    # Add quarter column
+    # Add quarter column at Quarterly orders
     df['quarter'] = df['order_purchase_timestamp'].dt.quarter
     df['year'] = df['order_purchase_timestamp'].dt.year
 
@@ -172,7 +329,7 @@ with tab2:
                  title='Quarterly Order Distribution')
     st.plotly_chart(fig, use_container_width=True)
 
-    # Add month and year columns
+    # Add month and year columns at Monthly Order
     df['month'] = df['order_purchase_timestamp'].dt.month
 
     # Calculate monthly orders by year
